@@ -1,0 +1,307 @@
+"use client";
+
+import React, { useState } from "react";
+import Image from "next/image";
+import { supabase } from "../lib/supabaseClient";
+import BookImg from "../images/book.png";
+
+const GoogleIcon = (props) => (
+  <svg {...props} viewBox="0 0 48 48" width="20" height="20">
+    <clipPath id="g">
+      <path d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.3 0-13.3-6-13.3-13.3s6-13.3 13.3-13.3c3.9 0 7.2 1.5 9.8 3.2L41.3 9c-4.4-2.6-9.8-4-15.3-4C13.5 5 5 13.5 5 24s8.5 19 19 19c11.1 0 17.7-8.1 17.7-17.9 0-1.3-.1-2.6-.4-3.9z" />
+    </clipPath>
+    <path clipPath="url(#g)" fill="#FBBC04" d="M0 37V11l17 13z" />
+    <path clipPath="url(#g)" fill="#EA4335" d="M0 11l17 13 7-6.1L48 14V5z" />
+    <path clipPath="url(#g)" fill="#34A853" d="M0 37l30-23 7.9 1L48 37z" />
+    <path clipPath="url(#g)" fill="#4285F4" d="M48 14l-4.1 2.5H24v8.5h20.5z" />
+  </svg>
+);
+
+export default function RegisterPage() {
+  const [formData, setFormData] = useState({
+    username: "",
+    user_email: "",
+    user_fullname: "",
+    user_birthdate: "",
+    user_type_id: "",
+    user_org_id: "",
+    user_password: "",
+    confirmPassword: "",
+    agreeTerms: false,
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+
+    // ✅ ตรวจสอบรหัสผ่านซ้ำ
+    if (formData.user_password !== formData.confirmPassword) {
+      alert("รหัสผ่านไม่ตรงกัน");
+      return;
+    }
+
+    // ✅ ตรวจสอบว่าทุกช่องกรอกครบหรือไม่
+    if (
+      !formData.username ||
+      !formData.user_email ||
+      !formData.user_fullname ||
+      !formData.user_birthdate ||
+      !formData.user_type_id ||
+      !formData.user_org_id
+    ) {
+      alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+      return;
+    }
+
+    try {
+      // ✅ สร้าง UUID
+      const user_id = crypto.randomUUID();
+
+      // ✅ บันทึกข้อมูลลง Supabase (ไม่เข้ารหัสรหัสผ่าน)
+      const { error } = await supabase.from("users_tb").insert([
+        {
+          user_id,
+          username: formData.username,
+          user_email: formData.user_email,
+          user_password: formData.user_password, // ← plain text (ไม่ใช้ bcrypt)
+          user_fullname: formData.user_fullname,
+          user_birthdate: formData.user_birthdate,
+          user_type_id: formData.user_type_id,
+          user_org_id: formData.user_org_id,
+          user_image: null,
+          user_status: "active",
+          user_created_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (error) {
+        console.error("❌ Register error:", error);
+        alert("เกิดข้อผิดพลาดในการลงทะเบียน: " + error.message);
+      } else {
+        alert("✅ ลงทะเบียนสำเร็จ!");
+        // ล้างฟอร์ม
+        setFormData({
+          username: "",
+          user_email: "",
+          user_fullname: "",
+          user_birthdate: "",
+          user_type_id: "",
+          user_org_id: "",
+          user_password: "",
+          confirmPassword: "",
+          agreeTerms: false,
+        });
+      }
+    } catch (err) {
+      console.error("❌ Unexpected error:", err);
+      alert("เกิดข้อผิดพลาด: " + err.message);
+    }
+  };
+
+  const userTypeOptions = [
+    { value: "", label: "โปรดเลือกประเภทผู้ใช้" },
+    { value: "1", label: "นักศึกษา" },
+    { value: "2", label: "อาจารย์/นักวิจัย" },
+    { value: "3", label: "บุคคลทั่วไป" },
+  ];
+
+  const userOrgOptions = [
+    { value: "", label: "โปรดเลือกสังกัด" },
+    { value: "1", label: "คณะวิศวกรรมศาสตร์" },
+    { value: "2", label: "คณะวิทยาศาสตร์" },
+    { value: "3", label: "สังกัดอื่นๆ" },
+  ];
+
+  return (
+    <div className="min-h-screen flex font-['Inter']">
+      {/* ฟอร์มด้านซ้าย */}
+      <div className="w-full md:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-16 bg-white z-10">
+        <div className="w-full max-w-md">
+          <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center md:text-left">
+            ลงทะเบียนผู้ใช้
+          </h1>
+
+          <form onSubmit={handleRegister} className="space-y-4">
+            {/* Username */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ชื่อผู้ใช้
+              </label>
+              <input
+                name="username"
+                type="text"
+                required
+                placeholder="ชื่อผู้ใช้"
+                value={formData.username}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Full Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ชื่อ-นามสกุล
+              </label>
+              <input
+                name="user_fullname"
+                type="text"
+                required
+                placeholder="ชื่อ-นามสกุล"
+                value={formData.user_fullname}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                อีเมล
+              </label>
+              <input
+                name="user_email"
+                type="email"
+                required
+                placeholder="อีเมล"
+                value={formData.user_email}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Birthdate */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                วัน/เดือน/ปี เกิด
+              </label>
+              <input
+                name="user_birthdate"
+                type="date"
+                required
+                value={formData.user_birthdate}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* User Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ประเภทผู้ใช้
+              </label>
+              <select
+                name="user_type_id"
+                required
+                value={formData.user_type_id}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {userTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value} disabled={option.value === ""}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* User Org */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                สังกัด
+              </label>
+              <select
+                name="user_org_id"
+                required
+                value={formData.user_org_id}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                {userOrgOptions.map((option) => (
+                  <option key={option.value} value={option.value} disabled={option.value === ""}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                รหัสผ่าน
+              </label>
+              <input
+                name="user_password"
+                type="password"
+                required
+                placeholder="รหัสผ่าน"
+                value={formData.user_password}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                ยืนยันรหัสผ่าน
+              </label>
+              <input
+                name="confirmPassword"
+                type="password"
+                required
+                placeholder="ยืนยันรหัสผ่าน"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Agree Terms */}
+            <div className="flex items-center">
+              <input
+                id="agreeTerms"
+                name="agreeTerms"
+                type="checkbox"
+                required
+                checked={formData.agreeTerms}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+              <label htmlFor="agreeTerms" className="ml-2 block text-sm text-gray-900">
+                ฉันได้อ่านและยอมรับข้อตกลงและเงื่อนไข
+              </label>
+            </div>
+
+            {/* Register Button */}
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition"
+            >
+              ลงทะเบียน
+            </button>
+          </form>
+
+          <p className="mt-8 text-center text-sm text-gray-600">
+            มีบัญชีอยู่แล้ว?{" "}
+            <a href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              กลับสู่หน้าเข้าสู่ระบบ
+            </a>
+          </p>
+        </div>
+      </div>
+
+      {/* รูปภาพด้านขวา */}
+      <div className="hidden md:block md:w-1/2 relative overflow-hidden">
+        <Image src={BookImg} alt="หนังสือและเอกสารวิจัย" fill className="object-cover" priority />
+      </div>
+    </div>
+  );
+}
