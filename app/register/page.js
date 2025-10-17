@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { supabase } from "../lib/supabaseClient";
-import BookImg from "../images/book.png";
+import { supabase } from "../../lib/supabaseClient";
+import BookImg from "../../images/book.png";
 
 const GoogleIcon = (props) => (
   <svg {...props} viewBox="0 0 48 48" width="20" height="20">
@@ -43,11 +43,11 @@ export default function RegisterPage() {
 
     // ✅ ตรวจสอบรหัสผ่านซ้ำ
     if (formData.user_password !== formData.confirmPassword) {
-      alert("รหัสผ่านไม่ตรงกัน");
+      alert("❌ รหัสผ่านไม่ตรงกัน");
       return;
     }
 
-    // ✅ ตรวจสอบว่าทุกช่องกรอกครบหรือไม่
+    // ✅ ตรวจสอบช่องว่าง
     if (
       !formData.username ||
       !formData.user_email ||
@@ -56,21 +56,51 @@ export default function RegisterPage() {
       !formData.user_type_id ||
       !formData.user_org_id
     ) {
-      alert("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+      alert("⚠️ กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
 
     try {
+      // ✅ ตรวจสอบอีเมลหรือชื่อผู้ใช้ซ้ำ
+      const { data: existingUsers, error: checkError } = await supabase
+        .from("users_tb")
+        .select("user_email, username")
+        .or(`user_email.eq.${formData.user_email},username.eq.${formData.username}`);
+
+      if (checkError) {
+        console.error("Error checking duplicates:", checkError);
+        alert("เกิดข้อผิดพลาดระหว่างตรวจสอบข้อมูลซ้ำ");
+        return;
+      }
+
+      if (existingUsers && existingUsers.length > 0) {
+        const isEmailDuplicate = existingUsers.some(
+          (user) => user.user_email === formData.user_email
+        );
+        const isUsernameDuplicate = existingUsers.some(
+          (user) => user.username === formData.username
+        );
+
+        if (isEmailDuplicate) {
+          alert("❌ อีเมลนี้ถูกใช้ไปแล้ว");
+          return;
+        }
+        if (isUsernameDuplicate) {
+          alert("❌ ชื่อผู้ใช้นี้ถูกใช้ไปแล้ว");
+          return;
+        }
+      }
+
       // ✅ สร้าง UUID
       const user_id = crypto.randomUUID();
 
-      // ✅ บันทึกข้อมูลลง Supabase (ไม่เข้ารหัสรหัสผ่าน)
+      // ✅ บันทึกข้อมูลลง Supabase
       const { error } = await supabase.from("users_tb").insert([
         {
           user_id,
           username: formData.username,
           user_email: formData.user_email,
-          user_password: formData.user_password, // ← plain text (ไม่ใช้ bcrypt)
+          user_password: formData.user_password, // ไม่เข้ารหัส
           user_fullname: formData.user_fullname,
           user_birthdate: formData.user_birthdate,
           user_type_id: formData.user_type_id,
@@ -86,7 +116,6 @@ export default function RegisterPage() {
         alert("เกิดข้อผิดพลาดในการลงทะเบียน: " + error.message);
       } else {
         alert("✅ ลงทะเบียนสำเร็จ!");
-        // ล้างฟอร์ม
         setFormData({
           username: "",
           user_email: "",
@@ -131,10 +160,11 @@ export default function RegisterPage() {
           <form onSubmit={handleRegister} className="space-y-4">
             {/* Username */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 ชื่อผู้ใช้
               </label>
               <input
+                id="username"
                 name="username"
                 type="text"
                 required
@@ -147,10 +177,11 @@ export default function RegisterPage() {
 
             {/* Full Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="user_fullname" className="block text-sm font-medium text-gray-700 mb-1">
                 ชื่อ-นามสกุล
               </label>
               <input
+                id="user_fullname"
                 name="user_fullname"
                 type="text"
                 required
@@ -163,10 +194,11 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="user_email" className="block text-sm font-medium text-gray-700 mb-1">
                 อีเมล
               </label>
               <input
+                id="user_email"
                 name="user_email"
                 type="email"
                 required
@@ -179,10 +211,11 @@ export default function RegisterPage() {
 
             {/* Birthdate */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="user_birthdate" className="block text-sm font-medium text-gray-700 mb-1">
                 วัน/เดือน/ปี เกิด
               </label>
               <input
+                id="user_birthdate"
                 name="user_birthdate"
                 type="date"
                 required
@@ -194,10 +227,11 @@ export default function RegisterPage() {
 
             {/* User Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="user_type_id" className="block text-sm font-medium text-gray-700 mb-1">
                 ประเภทผู้ใช้
               </label>
               <select
+                id="user_type_id"
                 name="user_type_id"
                 required
                 value={formData.user_type_id}
@@ -214,10 +248,11 @@ export default function RegisterPage() {
 
             {/* User Org */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="user_org_id" className="block text-sm font-medium text-gray-700 mb-1">
                 สังกัด
               </label>
               <select
+                id="user_org_id"
                 name="user_org_id"
                 required
                 value={formData.user_org_id}
@@ -234,10 +269,11 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="user_password" className="block text-sm font-medium text-gray-700 mb-1">
                 รหัสผ่าน
               </label>
               <input
+                id="user_password"
                 name="user_password"
                 type="password"
                 required
@@ -250,10 +286,11 @@ export default function RegisterPage() {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 ยืนยันรหัสผ่าน
               </label>
               <input
+                id="confirmPassword"
                 name="confirmPassword"
                 type="password"
                 required
@@ -281,13 +318,41 @@ export default function RegisterPage() {
             </div>
 
             {/* Register Button */}
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition"
-            >
-              ลงทะเบียน
-            </button>
+            <div>
+              <button
+                type="submit"
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition duration-150"
+              >
+                ลงทะเบียน
+              </button>
+            </div>
           </form>
+
+          {/* Divider */}
+          <div className="mt-4 relative">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">หรือ</span>
+            </div>
+          </div>
+
+          {/* Google & Guest Buttons */}
+          <div className="mt-4 flex space-x-3">
+            <button
+              type="button"
+              className="w-1/2 inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150"
+            >
+              <GoogleIcon className="mr-2" /> ลงทะเบียนด้วย Google
+            </button>
+            <button
+              type="button"
+              className="w-1/2 inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150"
+            >
+              ลงทะเบียนในฐานะผู้มาเยือน
+            </button>
+          </div>
 
           <p className="mt-8 text-center text-sm text-gray-600">
             มีบัญชีอยู่แล้ว?{" "}
